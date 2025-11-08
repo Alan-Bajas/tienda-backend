@@ -1,0 +1,104 @@
+<h2>Carrito</h2>
+
+{{#if error}}
+  <article class="contrast"><strong>Error:</strong> {{error}}</article>
+{{/if}}
+
+{{#if cart}}
+  {{#if cart.products}}
+    {{#if cart.products.length}}
+
+      <ul style="list-style:none; padding:0; margin:0;">
+        {{#each cart.products}}
+          <li class="row" style="padding: .8rem 0; border-bottom: 1px solid var(--muted-border-color);">
+            <div class="left">
+              {{#if this.product.thumbnail}}
+                <img src="{{this.product.thumbnail}}" alt="{{this.product.title}}" width="72" height="72" style="object-fit:cover; border-radius:.6rem;">
+              {{else}}
+                <div class="thumb">IMG</div>
+              {{/if}}
+
+              <div>
+                <strong>{{this.product.title}}</strong><br />
+                <small class="secondary">Cat: {{this.product.category}}</small><br />
+                <small>{{money this.product.price}} × {{this.quantity}} = <strong>{{money (multiply this.product.price this.quantity)}}</strong></small>
+              </div>
+            </div>
+
+            <div class="qty-actions">
+              <button class="secondary outline qty" data-action="dec" data-pid="{{this.product._id}}">−</button>
+              <button class="primary qty" data-action="inc" data-pid="{{this.product._id}}">+</button>
+              <button class="contrast del" data-pid="{{this.product._id}}">Eliminar</button>
+            </div>
+          </li>
+        {{/each}}
+      </ul>
+
+      <article style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
+        <strong>Total: {{money (total cart.products)}}</strong>
+        <button id="vaciar" class="secondary outline">🧹 Vaciar carrito</button>
+      </article>
+
+    {{else}}
+      <article class="secondary">Tu carrito está vacío.</article>
+    {{/if}}
+  {{else}}
+    <article class="secondary">Tu carrito está vacío.</article>
+  {{/if}}
+{{else}}
+  <article class="contrast">No se pudo cargar el carrito.</article>
+{{/if}}
+
+<script>
+  (function(){
+    const cid = '{{cid}}';
+
+    document.addEventListener('click', async (e) => {
+      const del = e.target.closest('.del');
+      const qty = e.target.closest('.qty');
+      const vaciar = e.target.closest('#vaciar');
+
+      try {
+        if (del) {
+          const pid = del.dataset.pid;
+          await fetch(`/api/carts/${cid}/products/${pid}`, { method: 'DELETE' });
+          location.reload();
+          return;
+        }
+
+        if (qty) {
+          const pid = qty.dataset.pid;
+          const action = qty.dataset.action;
+
+          const r = await fetch(`/api/carts/${cid}`);
+          const j = await r.json();
+          const items = (j?.payload?.products || []);
+          const found = items.find(p => p.product._id === pid);
+          if (!found) return;
+
+          let newQty = found.quantity + (action === 'inc' ? 1 : -1);
+          if (newQty < 1) {
+            await fetch(`/api/carts/${cid}/products/${pid}`, { method: 'DELETE' });
+          } else {
+            await fetch(`/api/carts/${cid}/products/${pid}`, {
+              method: 'PUT',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ quantity: newQty })
+            });
+          }
+          location.reload();
+          return;
+        }
+
+        if (vaciar) {
+          await fetch(`/api/carts/${cid}`, { method: 'DELETE' });
+          location.reload();
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Operación fallida: ' + err.message);
+      }
+    });
+  })();
+</script>
